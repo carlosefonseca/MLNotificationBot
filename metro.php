@@ -33,19 +33,29 @@ die("\n");
 //////// FUNCTIONS ////////
 function actOnChangedData($data) {
     $text = strtoupper($data["line"]).": ".$data["descr"];
-    $sorry = strpos($text," Pedimos desculpa pelo i");
-    if ($sorry != -1) {
+    $sorry = strpos($text," Pedimos desculpa");
+    if ($sorry > -1) {
         $text = substr($text, 0, $sorry);
     }
-    $text = substr($text, 0, 140);
+    $text = str_replace("&aatilde", "&atilde", $text);    
 
-    $text = utf8_encode(html_entity_decode($text));
-    echo "New Tweet: ".$text;
+    $text = trim(html_entity_decode($text, ENT_COMPAT | ENT_HTML401, "UTF-8"));
 
-    echo " Twitter: ".post_tweet($text);
+    if (strlen($text) == 0) { echo " "; return; }
+
+    if (strlen($text)>140) {
+        $spacepos = strrpos($text, " ", -(strlen($text)-140));
+        dotweet(substr($text, 0, $spacepos)."…");
+        dotweet(substr($text, $spacepos));
+    } else {
+        dotweet($text);
+    }
 }
 
-
+function dotweet($text) {
+    echo "\n".$text." >> ".post_tweet($text);
+#    echo "\n".$text."<<";
+}
 
 function loadLocalData($file, $json=false) {
     if (!file_exists($file))
@@ -94,6 +104,7 @@ function findChanges($text, $oldtxt) {
     foreach($matches as $k=>$v) {
         $descr = preg_replace("|\</li>\s*<li[^>]*>|", "; ", $v[3]);
         if (strcmp($descr,$old[$k]["descr"]) != 0) {
+            echo $v[1]." [old:".$old[$k]["descr"]." § new:".$descr."]";
             $changes[] = array("line"=>$v[1] , "descr" => $descr);
         }
     }
@@ -101,14 +112,10 @@ function findChanges($text, $oldtxt) {
 }
 
 function post_tweet($tweet_text) {
-    require 'tmhOAuth/tmhOAuth.php';
-    require 'tmhOAuth/tmhUtilities.php';
-    $tmhOAuth = new tmhOAuth(array(
-      'consumer_key'    => '',
-      'consumer_secret' => '',
-      'user_token'      => '',
-      'user_secret'     => '',
-    ));
+    require_once 'tmhOAuth/tmhOAuth.php';
+    require_once 'tmhOAuth/tmhUtilities.php';
+    require_once 'config.php';
+    $tmhOAuth = new tmhOAuth($tmhOAuthConfig);
 
     $code = $tmhOAuth->request('POST', $tmhOAuth->url('1/statuses/update'), array(
       'status' => $tweet_text
