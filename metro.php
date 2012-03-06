@@ -4,7 +4,7 @@ error_reporting(E_ERROR | E_WARNING | E_PARSE | E_COMPILE_ERROR);
 // Setup
 $debug=false;
 $lastChangeFPath = "last.html";
-$url = "http://app.metrolisboa.pt/status/estadoLinhas.php";
+$url = "http://app.metrolisboa.pt/status/estado_Linhas.php";
 
 // LOAD PREVIOUS PAGE
 $oldpage = loadLocalData($lastChangeFPath);
@@ -32,13 +32,15 @@ die("\n");
 
 //////// FUNCTIONS ////////
 function actOnChangedData($data) {
-    $text = strtoupper($data["line"]).": ".$data["descr"];
+    $text = str_replace("LINHA ","",strtoupper($data["line"])).":".$data["descr"];
     $sorry = strpos($text," Pedimos desculpa");
     if ($sorry > -1) {
         $text = substr($text, 0, $sorry);
     }
-    $text = str_replace("&aatilde", "&atilde", $text);    
-
+    // $text = str_replace("&aatilde", "&atilde", $text);
+    $text = str_replace(" minutos", "min", $text);
+    $text = str_replace("num período inferior a", "dentro de", $text);
+    
     $text = trim(html_entity_decode($text, ENT_COMPAT | ENT_HTML401, "UTF-8"));
 
     if (strlen($text) == 0) { echo " "; return; }
@@ -46,14 +48,14 @@ function actOnChangedData($data) {
     if (strlen($text)>140) {
         $spacepos = strrpos($text, " ", -(strlen($text)-140));
         dotweet(substr($text, 0, $spacepos)."…");
-        dotweet(substr($text, $spacepos));
+        dotweet("…".substr($text, $spacepos+1));
     } else {
         dotweet($text);
     }
 }
 
 function dotweet($text) {
-    echo "\n".$text." >> ".post_tweet($text);
+    echo "\n".$text." [".post_tweet($text)."]";
 #    echo "\n".$text."<<";
 }
 
@@ -104,19 +106,24 @@ function findChanges($text, $oldtxt) {
     foreach($matches as $k=>$v) {
         $descr = preg_replace("|\</li>\s*<li[^>]*>|", "; ", $v[3]);
         if (strcmp($descr,$old[$k]["descr"]) != 0) {
-            echo $v[1]." [old:".$old[$k]["descr"]." § new:".$descr."]";
+            echo $v[1]."\n old:".$old[$k]["descr"]."\n new:".$descr;
             $changes[] = array("line"=>$v[1] , "descr" => $descr);
         }
     }
     return $changes;
 }
 
-function post_tweet($tweet_text) {
-    require_once 'tmhOAuth/tmhOAuth.php';
-    require_once 'tmhOAuth/tmhUtilities.php';
-    require_once 'config.php';
-    $tmhOAuth = new tmhOAuth($tmhOAuthConfig);
 
+$tmhOAuth = null;
+
+function post_tweet($tweet_text) {
+    global $tmhOAuth;
+    if ($tmhOAuth == null) {
+        require_once 'tmhOAuth/tmhOAuth.php';
+        require_once 'tmhOAuth/tmhUtilities.php';
+        require_once 'config.php';
+        $tmhOAuth = new tmhOAuth($tmhOAuthConfig);
+    }
     $code = $tmhOAuth->request('POST', $tmhOAuth->url('1/statuses/update'), array(
       'status' => $tweet_text
     ));
