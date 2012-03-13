@@ -1,10 +1,25 @@
 <?php
+set_time_limit(10);
 error_reporting(E_ERROR | E_WARNING | E_PARSE | E_COMPILE_ERROR);
 
 // Setup
 $debug=false;
 $lastChangeFPath = "last.html";
 $url = "http://app.metrolisboa.pt/status/estado_Linhas.php";
+$isRunningPath = "running";
+$isRunningFP;
+
+// LOGGING
+#$ob_file = fopen('logs/'.date("Ymd"),'a');
+ob_start('ob_file_callback');
+
+
+// TEST IF SCRIPT IS RUNNING BY LOCKING THE RUNNINGFILE
+$isRunningFP = fopen($isRunningPath, "w");
+if (!flock($isRunningFP, LOCK_EX)) { // do an exclusive lock
+    echo "D";
+}
+
 
 // LOAD PREVIOUS PAGE
 $oldpage = loadLocalData($lastChangeFPath);
@@ -13,7 +28,7 @@ $oldpage = loadLocalData($lastChangeFPath);
 $page = downloadPage($url);
 
 // EXIT IF NO CHANGE
-if (strcmp($page, $oldpage) == 0) die("#");
+if (strcmp($page, $oldpage) == 0) perish(".");
 echo "\n";
 
 // SAVE NEW PAGE
@@ -26,7 +41,7 @@ $changedData = findChanges($page, $oldpage);
 foreach($changedData as $data) {
 	actOnChangedData($data);
 }
-die("\n");
+perish("\n");
 
 
 
@@ -81,11 +96,21 @@ function downloadPage($url) {
 	curl_setopt($ch, CURLOPT_HEADER, 0);
 	curl_setopt($ch, CURLOPT_REFERER, "http://www.metrolisboa.pt/");
 	curl_setopt($ch, CURLOPT_USERAGENT, "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_7_3) AppleWebKit/535.18.5 (KHTML, like Gecko) Version/5.2 Safari/535.18.5");
+	curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
+	curl_setopt($ch, CURLOPT_TIMEOUT, 5);
 
 	$f = curl_exec($ch);
-	curl_close($ch);
-	
-	return $f;
+	$info = curl_getinfo($ch);
+    curl_close($ch);
+    
+    if ($f === false || $info['http_code'] != 200) {
+        if (curl_error($ch))
+            perish("\n".curl_error($ch)."\n");
+        else
+            perish("#");
+    } else {
+        return $f;
+    }
 }
 
 
@@ -135,4 +160,22 @@ function post_tweet($tweet_text) {
     } else {
       tmhUtilities::pr($tmhOAuth->response['response']);
     }
+}
+
+
+// ENDING
+
+function ob_file_callback($buffer)
+{
+    file_put_contents('logs/'.date("Ymd"), $buffer, FILE_APPEND);
+}
+
+
+function perish($msg = "") {
+    global $isRunningFP;
+    echo $msg;
+    ob_end_flush();
+    flock($isRunningFP, LOCK_UN);
+    fclose($isRunningFP);
+    die();
 }
