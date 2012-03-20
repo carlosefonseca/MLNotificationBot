@@ -52,10 +52,11 @@ function actOnChangedData($data) {
     if ($sorry > -1) {
         $text = substr($text, 0, $sorry);
     }
-    // $text = str_replace("&aatilde", "&atilde", $text);
     $text = str_replace(" minutos", "min", $text);
     $text = str_replace("num período inferior a", "dentro de", $text);
-    
+    $text = str_replace("Não é possível prever a duração da interrupção, que poderá ser prolongada.", "Interrupção poderá ser prolongada.", $text);
+    $text = str_replace("Esperamos retomar a circulação dentro de 15min.", "Normalização dentro de 15min.", $text);
+                                                             
     $text = trim(html_entity_decode($text, ENT_COMPAT | ENT_HTML401, "UTF-8"));
 
     if (strlen($text) == 0) { echo " "; return; }
@@ -101,10 +102,11 @@ function downloadPage($url) {
 
 	$f = curl_exec($ch);
 	$info = curl_getinfo($ch);
+	$cerror = curl_error($ch);
     curl_close($ch);
     
     if ($f === false || $info['http_code'] != 200) {
-        if (curl_error($ch))
+        if ($cerror != '')
             perish("\n".curl_error($ch)."\n");
         else
             perish("#");
