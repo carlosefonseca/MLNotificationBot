@@ -55,7 +55,8 @@ function actOnChangedData($data) {
     $text = str_replace(" minutos", "min", $text);
     $text = str_replace("num período inferior a", "dentro de", $text);
     $text = str_replace("Não é possível prever a duração da interrupção, que poderá ser prolongada.", "Interrupção poderá ser prolongada.", $text);
-    $text = str_replace("Esperamos retomar a circulação dentro de 15min.", "Normalização dentro de 15min.", $text);
+    $text = str_replace("Esperamos retomar a circulação dentro de.", "Normalização dentro de.", $text);
+    $text = str_replace("O tempo de reposição poderá ser superior a", "Pode demorar mais de", $text);
                                                              
     $text = trim(html_entity_decode($text, ENT_COMPAT | ENT_HTML401, "UTF-8"));
 
