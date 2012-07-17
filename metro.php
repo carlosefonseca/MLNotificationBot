@@ -30,7 +30,8 @@ $page = downloadPage($url);
 // EXIT IF NO CHANGE
 if (strcmp($page, $oldpage) == 0) perish(".");
 echo "\n";
-
+// echo "OLD:".$oldpage;
+// echo "NEW:".$page;
 // SAVE NEW PAGE
 file_put_contents($lastChangeFPath, $page);
 
@@ -39,7 +40,7 @@ $changedData = findChanges($page, $oldpage);
 
 // ACT ON CHANGED DATA
 foreach($changedData as $data) {
-	actOnChangedData($data);
+    actOnChangedData($data);
 }
 perish("\n");
 
@@ -73,42 +74,42 @@ function actOnChangedData($data) {
 
 function dotweet($text) {
     echo "\n".$text." [".post_tweet($text)."]";
-#    echo "\n".$text."<<";
+    // echo "\nt>".$text."<<";
 }
 
 function loadLocalData($file, $json=false) {
     if (!file_exists($file))
         return "";
 
-	$localdatatext = file_get_contents($file);
+    $localdatatext = file_get_contents($file);
 
-	if ($json)
-	    return json_decode($localdatatext);
-	else
-	    return $localdatatext;
+    if ($json)
+        return json_decode($localdatatext);
+    else
+        return $localdatatext;
 }
 
 function downloadPage($url) {
     global $debug;
     global $template;
-	
-	$ch = curl_init($url);
+    
+    $ch = curl_init($url);
 
-	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-	curl_setopt($ch, CURLOPT_HEADER, 0);
-	curl_setopt($ch, CURLOPT_REFERER, "http://www.metrolisboa.pt/");
-	curl_setopt($ch, CURLOPT_USERAGENT, "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_7_3) AppleWebKit/535.18.5 (KHTML, like Gecko) Version/5.2 Safari/535.18.5");
-	curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
-	curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+    curl_setopt($ch, CURLOPT_HEADER, 0);
+    curl_setopt($ch, CURLOPT_REFERER, "http://www.metrolisboa.pt/");
+    curl_setopt($ch, CURLOPT_USERAGENT, "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_7_3) AppleWebKit/535.18.5 (KHTML, like Gecko) Version/5.2 Safari/535.18.5");
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 5);
 
-	$f = curl_exec($ch);
-	$info = curl_getinfo($ch);
-	$cerror = curl_error($ch);
+    $f = curl_exec($ch);
+    $info = curl_getinfo($ch);
+    $cerror = curl_error($ch);
     curl_close($ch);
     
     if ($f === false || $info['http_code'] != 200) {
         if ($cerror != '')
-            perish("\n".curl_error($ch)."\n");
+            perish($cerror."\n");
         else
             perish("#");
     } else {
@@ -118,9 +119,17 @@ function downloadPage($url) {
 
 
 function findChanges($text, $oldtxt) {
+    $debug = true;
+    if ((strlen(trim($text)) < 2) ||  (strlen(trim($oldtxt)) < 2)) {
+        // if they are empty, ignore
+        return array();
+    }
+
     // OLD
-	$first = strpos($oldtxt, "<tr>");
+    $first = strpos($oldtxt, "<tr>");
     $a = preg_match_all("|\<tr>\<td[^>]+>\<b>([^\<]+)\</b>\</td>\<td[^>]*>\s*\<ul[^>]+>(\<li>(.*)\</li>)+\</ul>|", $oldtxt, $matches, PREG_SET_ORDER, $first);
+    if (count($matches) == 0)
+        perish("h");
     $old = array();
     foreach($matches as $v) {
         $descr = preg_replace("|\</li>\s*<li[^>]*>|", "; ", $v[3]);
@@ -128,13 +137,14 @@ function findChanges($text, $oldtxt) {
     }
 
     // NEW
-	$first = strpos($text, "<tr>");
+    $first = strpos($text, "<tr>");
     $a = preg_match_all("|\<tr>\<td[^>]+>\<b>([^\<]+)\</b>\</td>\<td[^>]*>\s*\<ul[^>]+>(\<li>(.*)\</li>)+\</ul>|", $text, $matches, PREG_SET_ORDER, $first);
     $changes = array();
     foreach($matches as $k=>$v) {
         $descr = preg_replace("|\</li>\s*<li[^>]*>|", "; ", $v[3]);
         if (strcmp($descr,$old[$k]["descr"]) != 0) {
-            echo $v[1]."\n old:".$old[$k]["descr"]."\n new:".$descr;
+            echo $v[1]."\n old:[".strlen($old[$k]["descr"])."]".$old[$k]["descr"]."\n new:[".strlen($descr)."]".$descr;
+            if (strlen($descr) == 0) perish("H");
             $changes[] = array("line"=>$v[1] , "descr" => $descr);
         }
     }
@@ -176,7 +186,11 @@ function ob_file_callback($buffer)
 
 function perish($msg = "") {
     global $isRunningFP;
-    echo $msg;
+    if (strlen($msg) > 1) {
+        echo "[X] ".$msg;
+    } else {
+        echo $msg;
+    }
     ob_end_flush();
     flock($isRunningFP, LOCK_UN);
     fclose($isRunningFP);
