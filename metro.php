@@ -3,7 +3,7 @@ set_time_limit(10);
 error_reporting(E_ERROR | E_WARNING | E_PARSE | E_COMPILE_ERROR);
 
 // Setup
-$debug=false;
+$debug=true;
 $lastChangeFPath = "last.html";
 $url = "http://app.metrolisboa.pt/status/estado_Linhas.php";
 $isRunningPath = "running";
@@ -19,7 +19,6 @@ $isRunningFP = fopen($isRunningPath, "w");
 if (!flock($isRunningFP, LOCK_EX)) { // do an exclusive lock
     echo "D";
 }
-
 
 // LOAD PREVIOUS PAGE
 $oldpage = loadLocalData($lastChangeFPath);
@@ -73,7 +72,7 @@ function actOnChangedData($data) {
 }
 
 function dotweet($text) {
-    echo "\n".$text." [".post_tweet($text)."]";
+    echo "\n".$text." [".post_tweet_11($text)."]";
     // echo "\nt>".$text."<<";
 }
 
@@ -119,7 +118,7 @@ function downloadPage($url) {
 
 
 function findChanges($text, $oldtxt) {
-    $debug = true;
+    $debug = false;
     if ((strlen(trim($text)) < 2) ||  (strlen(trim($oldtxt)) < 2)) {
         // if they are empty, ignore
         return array();
@@ -127,21 +126,26 @@ function findChanges($text, $oldtxt) {
 
     // OLD
     $first = strpos($oldtxt, "<tr>");
-    $a = preg_match_all("|\<tr>\<td[^>]+>\<b>([^\<]+)\</b>\</td>\<td[^>]*>\s*\<ul[^>]+>(\<li>(.*)\</li>)+\</ul>|", $oldtxt, $matches, PREG_SET_ORDER, $first);
+    $a = preg_match_all("|\<td\\s+class=\"linha_(\\w+)\"[^>]*>\<ul[^>]+><li>(.*)\</li>+\</ul>|", $oldtxt, $matches, PREG_SET_ORDER, $first);
     if (count($matches) == 0)
         perish("h");
     $old = array();
     foreach($matches as $v) {
-        $descr = preg_replace("|\</li>\s*<li[^>]*>|", "; ", $v[3]);
-        $old[] = array("line"=>$v[1] , "descr" => $descr);
+//        $descr = preg_replace("|\</li>\s*<li[^>]*>|", "; ", $v[3]);
+        $old[] = array("line"=>$v[1] , "descr" => $v[2]);
     }
+    if ($debug) var_dump($old);
 
     // NEW
     $first = strpos($text, "<tr>");
-    $a = preg_match_all("|\<tr>\<td[^>]+>\<b>([^\<]+)\</b>\</td>\<td[^>]*>\s*\<ul[^>]+>(\<li>(.*)\</li>)+\</ul>|", $text, $matches, PREG_SET_ORDER, $first);
+    if ($debug) print "---------------------\n$text\n---------------------";
+    $a = preg_match_all("|\<td\\s+class=\"linha_(\\w+)\"[^>]*>\\s*\<ul[^>]+><li>(.*)\</li>+\</ul>|", $text, $matches, PREG_SET_ORDER, $first);
     $changes = array();
     foreach($matches as $k=>$v) {
-        $descr = preg_replace("|\</li>\s*<li[^>]*>|", "; ", $v[3]);
+        if ($debug) print "-----\n";
+        $descr = $v[2];//preg_replace("|\</li>\s*<li[^>]*>|", "; ", $v[3]);
+        if ($debug) print "NEW: {$v[1]} $descr\n";
+        if ($debug) print "OLD: {$old[$k]['line']} {$old[$k]["descr"]}\n";
         if (strcmp($descr,$old[$k]["descr"]) != 0) {
             echo $v[1]."\n old:[".strlen($old[$k]["descr"])."]".$old[$k]["descr"]."\n new:[".strlen($descr)."]".$descr;
             if (strlen($descr) == 0) perish("H");
@@ -173,6 +177,28 @@ function post_tweet($tweet_text) {
     } else {
       tmhUtilities::pr($tmhOAuth->response['response']);
     }
+}
+
+$twitter = null;
+function post_tweet_11($tweet_text) {
+    global $twitter;
+    if ($twitter == null) {
+        require_once('TwitterAPIExchange.php');
+        require_once('TwitterAuth.php');
+        $twitter = new TwitterAPIExchange($settings);
+    }
+
+    $url = "https://api.twitter.com/1.1/statuses/update.json";
+    $requestMethod = "POST";
+
+    $postfields = array(
+        'status' => $tweet_text, 
+        'skip_status' => '1'
+    );
+
+    echo $twitter->buildOauth($url, $requestMethod)
+                 ->setPostfields($postfields)
+                 ->performRequest();
 }
 
 
