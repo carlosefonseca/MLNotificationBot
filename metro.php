@@ -70,10 +70,11 @@ function actOnChangedData($data) {
     } else {
         dotweet($text);
     }
+    sleep(3)
 }
 
 function dotweet($text) {
-    echo "\n".$text." [".post_tweet_11($text)."]";
+    echo "\n\n".$text." [".post_tweet_11($text)."]";
     // echo "\nt>".$text."<<";
 }
 
