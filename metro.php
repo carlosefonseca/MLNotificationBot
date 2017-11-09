@@ -57,13 +57,14 @@ function actOnChangedData($data) {
     $text = str_replace("Não é possível prever a duração da interrupção, que poderá ser prolongada.", "Interrupção poderá ser prolongada.", $text);
     $text = str_replace("Esperamos retomar a circulação dentro de.", "Normalização dentro de.", $text);
     $text = str_replace("O tempo de reposição poderá ser superior a", "Pode demorar mais de", $text);
+    $text = str_replace("Serviço encerrado", "", $text);
                                                              
     $text = trim(html_entity_decode($text, ENT_COMPAT | ENT_HTML401, "UTF-8"));
 
     if (strlen($text) == 0) { echo " "; return; }
 
-    if (strlen($text)>140) {
-        $spacepos = strrpos($text, " ", -(strlen($text)-140));
+    if (strlen($text)>280) {
+        $spacepos = strrpos($text, " ", -(strlen($text)-280));
         dotweet(substr($text, 0, $spacepos)."…");
         dotweet("…".substr($text, $spacepos+1));
     } else {
